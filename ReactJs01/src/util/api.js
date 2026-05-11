@@ -23,6 +23,26 @@ const getUserApi = () => {
     return axios.get(URL_API)
 }
 
+const requestForgotPasswordOtpApi = (email) => {
+    const URL_API = "/v1/api/forgot-password/request-otp";
+    return axios.post(URL_API, { email });
+}
+
+const verifyForgotPasswordOtpApi = (email, otp) => {
+    const URL_API = "/v1/api/forgot-password/verify-otp";
+    return axios.post(URL_API, { email, otp });
+}
+
+const resetPasswordWithOtpApi = (email, newPassword) => {
+    const URL_API = "/v1/api/forgot-password/reset";
+    return axios.post(URL_API, { email, newPassword });
+}
+
 export {
-    createUserApi, loginApi, getUserApi
+    createUserApi,
+    loginApi,
+    getUserApi,
+    requestForgotPasswordOtpApi,
+    verifyForgotPasswordOtpApi,
+    resetPasswordWithOtpApi
 }

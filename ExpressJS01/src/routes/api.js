@@ -4,7 +4,10 @@ const {
     createUser,
     handleLogin,
     getUser,
-    getAccount
+    getAccount,
+    requestForgotPassword,
+    verifyForgotPasswordOtp,
+    resetPasswordWithOtp
 } = require('../controllers/userController.js');
 
 const auth = require('../middleware/auth');
@@ -20,6 +23,9 @@ routerAPI.get("/", (req, res) => {
 
 routerAPI.post("/register", createUser);
 routerAPI.post("/login", handleLogin);
+routerAPI.post("/forgot-password/request-otp", requestForgotPassword);
+routerAPI.post("/forgot-password/verify-otp", verifyForgotPasswordOtp);
+routerAPI.post("/forgot-password/reset", resetPasswordWithOtp);
 
 routerAPI.get("/user", getUser);
 routerAPI.get("/account", delay, getAccount);

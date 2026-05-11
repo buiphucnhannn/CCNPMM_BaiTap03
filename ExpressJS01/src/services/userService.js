@@ -1,22 +1,16 @@
-require("dotenv").config();
-const User = require("../models/user");
+﻿require("dotenv").config();
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
+const UserModel = require("../models/user");
+
 const saltRounds = 10;
 const otpStore = new Map();
-
 const OTP_EXPIRE_MS = 5 * 60 * 1000;
 let mailTransporter;
 
 const sendOtpEmail = async (email, otp) => {
-    const {
-        SMTP_HOST,
-        SMTP_PORT,
-        SMTP_USER,
-        SMTP_PASS,
-        SMTP_FROM
-    } = process.env;
+    const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM } = process.env;
 
     if (!SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASS || !SMTP_FROM) {
         throw new Error("Thiếu cấu hình SMTP trong biến môi trường");
@@ -52,25 +46,23 @@ const sendOtpEmail = async (email, otp) => {
 
 const createUserService = async (name, email, password) => {
     try {
-        // check user exist
-        const user = await User.findOne({ email });
+        // const user = await User.findOne({ email });
+        const user = await UserModel.findByEmail(email);
         if (user) {
             console.log(`>>> user exist, chọn 1 email khác: ${email}`);
             return null;
         }
 
-        // hash user password
         const hashPassword = await bcrypt.hash(password, saltRounds);
 
-        // save user to database
-        let result = await User.create({
-            name: name,
-            email: email,
+        // let result = await User.create({ name, email, password: hashPassword, role: "User" });
+        const result = await UserModel.createUser({
+            name,
+            email,
             password: hashPassword,
             role: "User"
         });
         return result;
-
     } catch (error) {
         console.log(error);
         return null;
@@ -79,46 +71,41 @@ const createUserService = async (name, email, password) => {
 
 const loginService = async (email1, password) => {
     try {
-        // fetch user by email
-        const user = await User.findOne({ email: email1 });
+        // const user = await User.findOne({ email: email1 });
+        const user = await UserModel.findByEmail(email1);
+
         if (user) {
-            // compare password
             const isMatchPassword = await bcrypt.compare(password, user.password);
             if (!isMatchPassword) {
                 return {
                     EC: 2,
                     EM: "Email hoặc Password không đúng!"
                 };
-            } else {
-                // create an access token
-                const payload = {
+            }
+
+            const payload = {
+                email: user.email,
+                name: user.name
+            };
+
+            const access_token = jwt.sign(payload, process.env.JWT_SECRET, {
+                expiresIn: process.env.JWT_EXPIRE
+            });
+
+            return {
+                EC: 0,
+                access_token,
+                user: {
                     email: user.email,
                     name: user.name
-                };
-
-                const access_token = jwt.sign(
-                    payload,
-                    process.env.JWT_SECRET,
-                    {
-                        expiresIn: process.env.JWT_EXPIRE
-                    }
-                );
-
-                return {
-                    EC: 0,
-                    access_token,
-                    user: {
-                        email: user.email,
-                        name: user.name
-                    }
-                };
-            }
-        } else {
-            return {
-                EC: 1,
-                EM: "Email hoặc Password không đúng!"
+                }
             };
         }
+
+        return {
+            EC: 1,
+            EM: "Email hoặc Password không đúng!"
+        };
     } catch (error) {
         console.log(error);
         return null;
@@ -127,9 +114,9 @@ const loginService = async (email1, password) => {
 
 const getUserService = async () => {
     try {
-        let result = await User.find({}).select("-password");
-        return result;
-
+        // let result = await User.find({}).select("-password");
+        const rows = await UserModel.getAllUsersWithoutPassword();
+        return rows;
     } catch (error) {
         console.log(error);
         return null;
@@ -145,7 +132,8 @@ const requestForgotPasswordService = async (email) => {
             };
         }
 
-        const user = await User.findOne({ email });
+        // const user = await User.findOne({ email });
+        const user = await UserModel.findByEmail(email);
 
         if (!user) {
             return {
@@ -251,7 +239,9 @@ const resetPasswordWithOtpService = async (email, newPassword) => {
             };
         }
 
-        const user = await User.findOne({ email });
+        // const user = await User.findOne({ email });
+        const user = await UserModel.findByEmail(email);
+
         if (!user) {
             otpStore.delete(email);
             return {
@@ -261,8 +251,9 @@ const resetPasswordWithOtpService = async (email, newPassword) => {
         }
 
         const hashPassword = await bcrypt.hash(newPassword, saltRounds);
-        user.password = hashPassword;
-        await user.save();
+        // user.password = hashPassword;
+        // await user.save();
+        await UserModel.updatePasswordByEmail(email, hashPassword);
         otpStore.delete(email);
 
         return {
